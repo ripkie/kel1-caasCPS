@@ -1,22 +1,78 @@
+#define BLYNK_TEMPLATE_ID "TMPL6UZuKoQ2a"
+#define BLYNK_TEMPLATE_NAME "Quickstart Template"
+#define BLYNK_AUTH_TOKEN "0Y1A2Sp-nLQyj5ZhSInFMwZiVAPht5WR"
+
+// Aktifkan Serial Monitor untuk debugging
+#define BLYNK_PRINT Serial
+
+#include <WiFi.h>
+#include <WiFiClient.h>
+#include <BlynkSimpleEsp32.h>
+
+char ssid[] = "Wokwi-GUEST";
+char pass[] = "";
+
+const int zone_1_pin = 34;
+const int dry = 2700;
+const int wet = 0;
+
+BlynkTimer timer;
+
+// Fungsi Kirim Data (Dijalankan setiap 1 detik)
+void sendSensorData()
+{
+  // Baca Sensor
+  int raw_value = analogRead(zone_1_pin);
+
+  // Mapping
+  int percent_value = map(raw_value, wet, dry, 100, 0);
+
+  // Clamping (Agar tidak minus atau lebih dari 100)
+  if (percent_value < 0)
+    percent_value = 0;
+  if (percent_value > 100)
+    percent_value = 100;
+
+  Serial.print("Raw: ");
+  Serial.print(raw_value);
+  Serial.print(" | Percent: ");
+  Serial.print(percent_value);
+  Serial.println("%");
+
+  // Kirim ke Blynk
+  Blynk.virtualWrite(V0, percent_value);
+
+  // (Opsional) Kirim raw data ke V1
+  Blynk.virtualWrite(V1, raw_value);
+}
+
+void setup()
+{
+  Serial.begin(115200);
+  pinMode(zone_1_pin, INPUT);
+
+  Serial.println("Menghubungkan ke Blynk...");
+
+  // Fungsi ini otomatis menangani WiFi dan Login Blynk
+  Blynk.begin(BLYNK_AUTH_TOKEN, ssid, pass);
+
+  // Set timer kirim data setiap 1 detik (1000L)
+  timer.setInterval(1000L, sendSensorData);
+}
+
+void loop()
+{
+  Blynk.run(); // untuk menjaga koneksi
+  timer.run(); // untuk menjalankan timer
+}
 #include <Arduino.h>
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 #include <WiFi.h>
-#include <Firebase_ESP_Client.h>
 
 // ================= WIFI =================
 #define WIFI_SSID "iPhone"
 #define WIFI_PASSWORD "12341234"
-
-// ================= FIREBASE =================
-#define API_KEY "AIzaSyC0Qb4LAbcQWe-2DXLMueUo3uWr1RKNq9Q"
-#define DATABASE_URL "https://ca-week3-default-rtdb.firebaseio.com"
-#define USER_EMAIL "rifki.dupon07@gmail.com"
-#define USER_PASSWORD "Rifkiwidya6*"
-
-FirebaseData fbdo;
-FirebaseAuth auth;
-FirebaseConfig config;
 
 // ================= PIN =================
 #define I2C_SDA 8
@@ -83,20 +139,6 @@ bool connectWiFi()
   }
 }
 
-// ================= Firebase init =================
-void initFirebase()
-{
-  config.api_key = API_KEY;
-  config.database_url = DATABASE_URL;
-  auth.user.email = USER_EMAIL;
-  auth.user.password = USER_PASSWORD;
-
-  Firebase.begin(&config, &auth);
-  Firebase.reconnectWiFi(true);
-
-  Serial.println("Firebase init called");
-}
-
 void setup()
 {
   Serial.begin(115200);
@@ -126,7 +168,7 @@ void setup()
   lcd.clear();
 
   connectWiFi();
-  initFirebase();
+  // initFirebase();
 }
 
 void loop()
@@ -164,40 +206,4 @@ void loop()
   Serial.print(shockDetected);
   Serial.print(" | LED: ");
   Serial.println(ledStatus);
-
-  // ================= FIREBASE UPDATE =================
-  if (millis() - lastSend > sendInterval)
-  {
-    lastSend = millis();
-
-    if (WiFi.status() != WL_CONNECTED)
-    {
-      Serial.println("❌ WiFi not connected, skip Firebase");
-      return;
-    }
-
-    if (!Firebase.ready())
-    {
-      Serial.println("⏳ Firebase not ready yet, skip");
-      return;
-    }
-
-    bool ok1 = Firebase.RTDB.setFloat(&fbdo, "/BMKG/distance_cm", distance);
-    bool ok2 = Firebase.RTDB.setBool(&fbdo, "/BMKG/shock_detected", shockDetected);
-    bool ok3 = Firebase.RTDB.setBool(&fbdo, "/BMKG/led_red", ledStatus);
-    bool ok4 = Firebase.RTDB.setBool(&fbdo, "/BMKG/lcd_status", lcdOK);
-
-    if (ok1 && ok2 && ok3 && ok4)
-    {
-      Serial.println("✅ Data BERHASIL dikirim ke Firebase");
-    }
-    else
-    {
-      Serial.println("❌ GAGAL kirim ke Firebase");
-      Serial.print("Error: ");
-      Serial.println(fbdo.errorReason());
-    }
-  }
-
-  delay(200);
 }
