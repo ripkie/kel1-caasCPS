@@ -2,76 +2,120 @@
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 
-// ====== UBAH SESUAI PUNYA KAMU ======
 #define I2C_SDA 8
 #define I2C_SCL 9
 
-const int SHOCK_PIN = 21;
+#define TRIG_PIN 39
+#define ECHO_PIN 38
+#define SHOCK_PIN 21
 
-// Alamat LCD paling umum 0x27, kadang 0x3F
+// RGB pins (common cathode)
+#define R_PIN 17
+#define G_PIN 16
+#define B_PIN 15
+
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
-// Kalau shock kamu kebalik (LOW = getar), ubah ke true
+// Jika shock kamu kebalik (LOW = getar), ubah jadi true
 bool ACTIVE_LOW_SHOCK = false;
-// ===================================
+
+// =======================
+// Fungsi baca jarak
+// =======================
+float readDistanceCM()
+{
+  digitalWrite(TRIG_PIN, LOW);
+  delayMicroseconds(2);
+
+  digitalWrite(TRIG_PIN, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIG_PIN, LOW);
+
+  long duration = pulseIn(ECHO_PIN, HIGH, 30000); // timeout 30ms (~5m)
+  if (duration == 0)
+    return -1;
+
+  float distance = duration * 0.0343 / 2.0;
+  return distance;
+}
 
 void setup()
 {
-  Serial.begin(9600);
+  Serial.begin(115200);
 
-  // I2C custom pin
   Wire.begin(I2C_SDA, I2C_SCL);
-
   lcd.init();
   lcd.backlight();
-  lcd.clear();
-  lcd.setCursor(0, 0);
-  lcd.print("Shock Sensor");
-  lcd.setCursor(0, 1);
-  lcd.print("Init...");
-  delay(1000);
 
-  // Kalau modul shock kamu “pasif” dan butuh pull-up, ganti ke INPUT_PULLUP
+  pinMode(TRIG_PIN, OUTPUT);
+  pinMode(ECHO_PIN, INPUT);
   pinMode(SHOCK_PIN, INPUT);
 
+  pinMode(R_PIN, OUTPUT);
+  pinMode(G_PIN, OUTPUT);
+  pinMode(B_PIN, OUTPUT);
+
+  // Matikan RGB awal
+  digitalWrite(R_PIN, LOW);
+  digitalWrite(G_PIN, LOW);
+  digitalWrite(B_PIN, LOW);
+
+  lcd.setCursor(0, 0);
+  lcd.print("BMKG System");
+  lcd.setCursor(0, 1);
+  lcd.print("Starting...");
+  delay(1500);
   lcd.clear();
 }
 
 void loop()
 {
-  int raw = digitalRead(SHOCK_PIN);
+  float distance = readDistanceCM();
 
-  bool shockDetected;
-  if (ACTIVE_LOW_SHOCK)
+  int shockRaw = digitalRead(SHOCK_PIN);
+  bool shockDetected = ACTIVE_LOW_SHOCK ? (shockRaw == LOW) : (shockRaw == HIGH);
+
+  // ===== LED Merah =====
+  if (shockDetected)
   {
-    shockDetected = (raw == LOW);
+    digitalWrite(R_PIN, HIGH); // merah nyala
   }
   else
   {
-    shockDetected = (raw == HIGH);
+    digitalWrite(R_PIN, LOW); // merah mati
   }
+  // (opsional) pastikan G/B mati
+  digitalWrite(G_PIN, LOW);
+  digitalWrite(B_PIN, LOW);
 
-  // Serial
-  Serial.print("Shock raw: ");
-  Serial.print(raw);
-  Serial.print(" | Detected: ");
+  // ===== Serial Monitor =====
+  Serial.print("Jarak: ");
+  Serial.print(distance);
+  Serial.print(" cm | Shock: ");
   Serial.println(shockDetected ? "YES" : "NO");
 
-  // LCD
+  // ===== LCD =====
   lcd.setCursor(0, 0);
-  lcd.print("Raw: ");
-  lcd.print(raw);
-  lcd.print("           "); // clear sisa char
+  lcd.print("Jarak: ");
+  if (distance < 0)
+  {
+    lcd.print("Error     ");
+  }
+  else
+  {
+    lcd.print(distance, 1);
+    lcd.print(" cm   ");
+  }
 
   lcd.setCursor(0, 1);
   if (shockDetected)
   {
-    lcd.print("GETARAN TERDET! ");
+    lcd.print("GEMPAA!!!       ");
   }
   else
   {
     lcd.print("Normal          ");
   }
 
-  delay(200);
+  delay(500);
 }
