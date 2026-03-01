@@ -2,6 +2,7 @@
 #define BLYNK_TEMPLATE_NAME "Quickstart Template"
 #define BLYNK_AUTH_TOKEN "0Y1A2Sp-nLQyj5ZhSInFMwZiVAPht5WR"
 #define BLYNK_PRINT Serial
+
 #include <Arduino.h>
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
@@ -25,6 +26,15 @@ LiquidCrystal_I2C lcd(0x27, 16, 2);
 bool ACTIVE_LOW_SHOCK = false;
 BlynkTimer timer;
 
+void lcdPrintLine(byte row, const String &msg)
+{
+  lcd.setCursor(0, row);
+  String s = msg;
+  while (s.length() < 16)
+    s += " ";
+  lcd.print(s.substring(0, 16));
+}
+
 float readDistanceCM()
 {
   digitalWrite(TRIG_PIN, LOW);
@@ -32,9 +42,11 @@ float readDistanceCM()
   digitalWrite(TRIG_PIN, HIGH);
   delayMicroseconds(10);
   digitalWrite(TRIG_PIN, LOW);
+
   long duration = pulseIn(ECHO_PIN, HIGH, 30000);
   if (duration == 0)
     return -1;
+
   return duration * 0.0343f / 2.0f;
 }
 
@@ -49,36 +61,52 @@ void updateSystem()
   digitalWrite(G_PIN, LOW);
   digitalWrite(B_PIN, LOW);
 
-  // LCD tampilkan jarak + status
-  lcd.setCursor(0, 0);
-  lcd.print("Jarak: ");
+  // status lcd sir
+  bool wifiOK = (WiFi.status() == WL_CONNECTED);
+  bool blynkOK = Blynk.connected();
+
+  String line0 = "Jarak:";
   if (distance < 0)
-    lcd.print("Error     ");
+    line0 += "Err";
   else
   {
-    lcd.print(distance, 1);
-    lcd.print(" cm   ");
+    line0 += String(distance, 1);
+    line0 += " cm";
   }
-  lcd.setCursor(0, 1);
-  lcd.print(shockDetected ? "GEMPAA!!!       " : "Normal          ");
+  /*line0 += " ";
+  line0 += wifiOK ? "W" : "w";
+  line0 += blynkOK ? "B" : "b"; */
 
-  // Serial Monitor
-  Serial.print("Distance: ");
-  Serial.print(distance);
-  Serial.print(" cm | Shock: ");
-  Serial.println(shockDetected);
+  String line1 = "Status: ";
+  line1 += shockDetected ? "GEMPAA!!!" : "Normal";
+  // line1 += " V0:";
+  // line1 += shockDetected ? "1" : "0";
 
-  // Kirim data ke Blynk
-  if (Blynk.connected())
+  lcdPrintLine(0, line0);
+  lcdPrintLine(1, line1);
+
+  // Kirim ke blynk
+  if (blynkOK)
   {
-    Blynk.virtualWrite(V0, shockDetected ? 1 : 0); // V0 = indikator gempa
-    Blynk.virtualWrite(V1, distance);              // V1 = jarak
+    Blynk.virtualWrite(V0, shockDetected ? 1 : 0); // V0 indikator gempa sir
+    Blynk.virtualWrite(V1, distance);              // V1 jarak
+
+    Serial.print("[SEND OK] Shock=");
+    Serial.print(shockDetected ? 1 : 0);
+    Serial.print(" Jarak=");
+    Serial.print(distance);
+    Serial.println("cm");
+  }
+  else
+  {
+    Serial.println("[SEND SKIP] Blynk not connected");
   }
 }
 
 void setup()
 {
   Serial.begin(115200);
+
   pinMode(TRIG_PIN, OUTPUT);
   pinMode(ECHO_PIN, INPUT);
   pinMode(SHOCK_PIN, INPUT);
@@ -86,64 +114,74 @@ void setup()
   pinMode(G_PIN, OUTPUT);
   pinMode(B_PIN, OUTPUT);
 
+  digitalWrite(TRIG_PIN, LOW);
+
   Wire.begin(I2C_SDA, I2C_SCL);
   lcd.init();
   lcd.backlight();
-  lcd.setCursor(0, 0);
-  lcd.print("BMKG System");
-  lcd.setCursor(0, 1);
-  lcd.print("Connecting...");
 
-  // Koneksi WiFi
+  // LCD: sensor nyala
+  lcdPrintLine(0, "BMKG System");
+  lcdPrintLine(1, "Sensor nyala");
+  Serial.println("[SYS] Sensor nyala");
+  delay(800);
+
+  // WiFi connect
+  lcdPrintLine(0, "WiFi");
+  lcdPrintLine(1, "Connecting...");
+  Serial.print("[WiFi] Connecting");
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, pass);
-  Serial.print("Connecting WiFi");
+
   int retry = 0;
-  while (WiFi.status() != WL_CONNECTED && retry < 20)
+  while (WiFi.status() != WL_CONNECTED && retry < 30)
   {
     delay(500);
     Serial.print(".");
     retry++;
   }
+  Serial.println();
 
   if (WiFi.status() == WL_CONNECTED)
   {
-    Serial.println("\nWiFi Connected!");
-    Serial.print("IP: ");
+    Serial.print("[WiFi] OK IP: ");
     Serial.println(WiFi.localIP());
-    lcd.setCursor(0, 1);
-    lcd.print("WiFi OK!        ");
-    delay(800);
+    lcdPrintLine(0, "WiFi OK!");
+    lcdPrintLine(1, WiFi.localIP().toString());
+    delay(1000);
   }
   else
   {
-    Serial.println("\nWiFi GAGAL!");
-    lcd.setCursor(0, 1);
-    lcd.print("WiFi GAGAL!     ");
-    delay(800);
+    Serial.println("[WiFi] GAGAL!");
+    lcdPrintLine(0, "WiFi GAGAL!");
+    lcdPrintLine(1, "Cek SSID/PASS");
+    delay(1200);
   }
 
-  // Koneksi Blynk (port 80)
+  // Blynk connect
+  lcdPrintLine(0, "Blynk");
+  lcdPrintLine(1, "Connecting...");
+  Serial.println("[Blynk] Connecting...");
+
   Blynk.config(BLYNK_AUTH_TOKEN, "blynk.cloud", 80);
-  Blynk.connect(5000); // timeout 5 detik
+  Blynk.connect(5000);
 
   if (Blynk.connected())
   {
-    Serial.println("Blynk Connected!");
-    lcd.setCursor(0, 1);
-    lcd.print("Blynk OK!       ");
+    Serial.println("[Blynk] OK Connected!");
+    lcdPrintLine(0, "Blynk OK!");
+    lcdPrintLine(1, "Monitoring...");
   }
   else
   {
-    Serial.println("Blynk GAGAL - cek token/template");
-    lcd.setCursor(0, 1);
-    lcd.print("Blynk Error...  ");
+    Serial.println("[Blynk] GAGAL!");
+    lcdPrintLine(0, "Blynk GAGAL!");
+    lcdPrintLine(1, "Cek token");
   }
-
   delay(1000);
   lcd.clear();
 
-  timer.setInterval(1000L, updateSystem);
+  timer.setInterval(800L, updateSystem);
 }
 
 void loop()
