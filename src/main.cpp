@@ -9,12 +9,12 @@
 #include <WiFiClient.h>
 #include <BlynkSimpleEsp32.h>
 
-char ssid[] = "Joanna R";
-char pass[] = "yayayaya";
+char ssid[] = "iPhone";
+char pass[] = "12341234";
 
 #define I2C_SDA 8
 #define I2C_SCL 9
-#define TRIG_PIN 39
+#define TRIG_PIN 41
 #define ECHO_PIN 38
 #define SHOCK_PIN 21
 #define R_PIN 17
@@ -68,11 +68,11 @@ void updateSystem()
   Serial.print(" cm | Shock: ");
   Serial.println(shockDetected);
 
-  // Kirim ke Blynk
+  // Kirim data ke Blynk
   if (Blynk.connected())
   {
-    Blynk.virtualWrite(V2, distance);
-    Blynk.virtualWrite(V3, shockDetected ? 1 : 0);
+    Blynk.virtualWrite(V0, shockDetected ? 1 : 0); // V0 = indikator gempa
+    Blynk.virtualWrite(V1, distance);              // V1 = jarak
   }
 }
 
