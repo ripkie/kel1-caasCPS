@@ -44,6 +44,60 @@ FirebaseData fbdo;
 FirebaseAuth auth;
 FirebaseConfig config;
 
+// ===== RGB control =====
+bool RGB_ACTIVE_LOW = false; // true kalau common-anode (LOW = nyala)
+
+const int LEDC_FREQ = 5000;
+const int LEDC_RES = 8; // 0..255
+
+const int CH_R = 0;
+const int CH_G = 1;
+const int CH_B = 2;
+
+void rgbInit()
+{
+  ledcSetup(CH_R, LEDC_FREQ, LEDC_RES);
+  ledcSetup(CH_G, LEDC_FREQ, LEDC_RES);
+  ledcSetup(CH_B, LEDC_FREQ, LEDC_RES);
+
+  ledcAttachPin(R_PIN, CH_R);
+  ledcAttachPin(G_PIN, CH_G);
+  ledcAttachPin(B_PIN, CH_B);
+
+  // Matikan semua di awal
+  if (RGB_ACTIVE_LOW)
+  {
+    ledcWrite(CH_R, 255);
+    ledcWrite(CH_G, 255);
+    ledcWrite(CH_B, 255);
+  }
+  else
+  {
+    ledcWrite(CH_R, 0);
+    ledcWrite(CH_G, 0);
+    ledcWrite(CH_B, 0);
+  }
+}
+
+// value 0..255 (255 = paling terang)
+void setRGB255(uint8_t r, uint8_t g, uint8_t b)
+{
+  if (RGB_ACTIVE_LOW)
+  {
+    // active-low: 0=ON, 255=OFF
+    ledcWrite(CH_R, 255 - r);
+    ledcWrite(CH_G, 255 - g);
+    ledcWrite(CH_B, 255 - b);
+  }
+  else
+  {
+    // active-high: 255=ON, 0=OFF
+    ledcWrite(CH_R, r);
+    ledcWrite(CH_G, g);
+    ledcWrite(CH_B, b);
+  }
+}
+
 // pengaturan lcd
 void lcdPrintLine(byte row, const String &msg)
 {
@@ -76,10 +130,14 @@ void updateSystem()
   bool shockDetected = ACTIVE_LOW_SHOCK ? (shockRaw == LOW) : (shockRaw == HIGH);
 
   // LED Nyala saat SHOCk
-  digitalWrite(R_PIN, shockDetected ? HIGH : LOW);
-  digitalWrite(G_PIN, LOW);
-  digitalWrite(B_PIN, LOW);
-
+  if (shockDetected)
+  {
+    setRGB255(0, 255, 0); // PURE MERAH
+  }
+  else
+  {
+    setRGB255(0, 0, 0); // hijau saat normal (opsional)
+  }
   // Status koneksi
   bool wifiOK = (WiFi.status() == WL_CONNECTED);
   bool blynkOK = Blynk.connected();
@@ -163,6 +221,7 @@ void setup()
 
   Wire.begin(I2C_SDA, I2C_SCL);
   lcd.init();
+  rgbInit();
   lcd.backlight();
 
   // LCD: sensor nyala
@@ -241,7 +300,6 @@ void setup()
   Firebase.begin(&config, &auth);
   Firebase.reconnectWiFi(true);
 
-  // tunggu sebentar biar token kebentuk
   unsigned long t0 = millis();
   while (!Firebase.ready() && millis() - t0 < 5000)
   {
