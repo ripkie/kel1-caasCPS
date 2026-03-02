@@ -60,8 +60,8 @@ void rgbInit()
   ledcSetup(CH_G, LEDC_FREQ, LEDC_RES);
   ledcSetup(CH_B, LEDC_FREQ, LEDC_RES);
 
-  ledcAttachPin(R_PIN, CH_R);
-  ledcAttachPin(G_PIN, CH_G);
+  ledcAttachPin(R_PIN, CH_G);
+  ledcAttachPin(G_PIN, CH_R);
   ledcAttachPin(B_PIN, CH_B);
 
   // Matikan semua di awal
@@ -132,11 +132,11 @@ void updateSystem()
   // LED Nyala saat SHOCk
   if (shockDetected)
   {
-    setRGB255(0, 255, 0); // PURE MERAH
+    setRGB255(255, 0, 0); // MERAH
   }
   else
   {
-    setRGB255(0, 0, 0); // hijau saat normal (opsional)
+    setRGB255(0, 0, 0); // MATII LED NYA
   }
   // Status koneksi
   bool wifiOK = (WiFi.status() == WL_CONNECTED);
