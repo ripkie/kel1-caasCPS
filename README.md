@@ -95,4 +95,61 @@ Update sistem dilakukan setiap **0.8 detik**.
 
 # 🖥 Tampilan LCD
 
-### Kondisi Normal
+LCD 16x2 digunakan untuk menampilkan informasi utama sistem secara real-time.
+
+## 📍 Kondisi Normal
+
+Saat tidak ada guncangan terdeteksi:
+Jarak: --.-- cm
+Status: Normal 
+
+Penjelasan:
+- Baris pertama menampilkan jarak hasil pembacaan sensor ultrasonic.
+- Baris kedua menampilkan status sistem.
+- LED RGB dalam kondisi mati.
+- Data tetap dikirim ke Blynk dan Firebase.
+
+---
+
+## 🚨 Kondisi Terjadi Gempa
+
+Saat sensor shock mendeteksi getaran:
+Jarak: --.-- cm
+Status: GEMPAA!!!
+
+
+Penjelasan:
+- Status berubah menjadi **GEMPAA!!!**
+- LED RGB menyala merah sebagai indikator bahaya.
+- Data guncangan dikirim ke:
+  - Blynk (V0 = 1)
+  - Firebase (shock = 1)
+- Website akan menampilkan status gempa secara real-time.
+
+---
+
+## 🔄 Update Tampilan
+
+LCD diperbarui setiap:
+800 ms (0.8 detik)
+
+
+Setiap update mencakup:
+- Pembacaan jarak terbaru
+- Status guncangan terbaru
+- Perubahan indikator LED
+
+---
+
+## 📊 Informasi Tambahan
+
+Jika terjadi error pembacaan ultrasonic:
+Jarak: Err
+Status: Normal
+
+Artinya:
+- Sensor ultrasonic tidak menerima pantulan echo.
+- Sistem tetap berjalan normal.
+- Data error tetap dikirim ke cloud.
+
+
